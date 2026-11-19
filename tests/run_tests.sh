@@ -32,4 +32,20 @@ echo "== 4. main.ts creates a missing output directory"
 MAKEFUN_OUTPUT_DIR="$TMP/new/nested" node main.ts
 cmp "$TMP/new/nested/entry.png" entry.png
 
+echo "== 5. Malformed PNG headers are rejected before the output directory is touched"
+python3 -I tests/make_bad_headers.py entry.png "$TMP/bad"
+for case in "$TMP"/bad/*.png; do
+  name="$(basename "$case" .png)"
+  dir="$TMP/case-$name"
+  mkdir -p "$dir"
+  cp main.ts "$dir/main.ts"
+  cp "$case" "$dir/entry.png"
+  OUT="$TMP/out-$name"
+  if MAKEFUN_OUTPUT_DIR="$OUT" node "$dir/main.ts" >"$dir/log" 2>&1; then
+    echo "FAIL: $name was accepted"; cat "$dir/log"; exit 1
+  fi
+  if [ -e "$OUT" ]; then echo "FAIL: $name touched the output directory"; exit 1; fi
+  echo "rejected $name: $(grep -m1 -E 'Error:' "$dir/log" | sed 's/^Error: //')"
+done
+
 echo "ALL TESTS PASSED"
